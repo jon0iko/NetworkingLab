@@ -4,8 +4,8 @@ import java.util.*;
 
 public class server {
 
-    private static final int PORT = 12345;
-    private static final double PACKET_DROP_PROB = 0.05; // 5% chance to drop a packet
+    private static final int PORT = 3923;
+    private static final double p = 0.05; // 5%
 
     public static void main(String[] args) {
         System.out.println("[Server] Starting on port " + PORT);
@@ -41,7 +41,7 @@ public class server {
                     int seq;
                     try {
                         seq = in.readInt();
-                        if (seq == -1) { // EOF signal from client
+                        if (seq == -1) { // EOF signal
                             System.out.println("[Server] Client signaled end of transfer.");
                             break;
                         }
@@ -55,9 +55,9 @@ public class server {
                     in.readFully(data);
 
                     // Simulate packet drop
-                    if (random.nextDouble() < PACKET_DROP_PROB) {
+                    if (random.nextDouble() < p) {
                         System.out.printf("[Server] Dropped incoming packet %d (simulated)%n", seq);
-                        continue; // Just ignore the packet
+                        continue;
                     }
 
                     System.out.printf("[Server] Received packet %d%n", seq);
@@ -65,7 +65,6 @@ public class server {
                     if (seq == expectedSeq) {
                         fos.write(data);
                         expectedSeq++;
-                        // Process any buffered packets that are now in order
                         while (outOfOrderBuffer.containsKey(expectedSeq)) {
                             byte[] bufferedData = outOfOrderBuffer.remove(expectedSeq);
                             fos.write(bufferedData);
@@ -73,14 +72,12 @@ public class server {
                             expectedSeq++;
                         }
                     } else if (seq > expectedSeq) {
-                        // Buffer out-of-order packets
                         if (!outOfOrderBuffer.containsKey(seq)) {
                             outOfOrderBuffer.put(seq, data);
                             System.out.printf("[Server] Buffered out-of-order packet %d%n", seq);
                         }
                     }
                     
-                    // Always send a cumulative ACK for the last correctly received in-order packet
                     int ackToSend = expectedSeq - 1;
                     out.writeInt(ackToSend);
                     out.flush();
